@@ -1,22 +1,46 @@
 (ns markovify.twitter
   (require [clojure.string :as s]
-           [markovify.utils :as utils]))
+           [markovify.utils :as utils]
+           [environ.core :refer [env]]
+           [twitter.api.restful :as twitter-api]
+           [twitter.oauth :as oauth])
+  (use [twitter.callbacks]
+       [twitter.callbacks.handlers])
+  (import (twitter.callbacks.protocols SyncSingleCallback)))
 
-(def tweets
-  {"@jarofghosts" ["not a real tweet" "maybe this is?" "this is some text" "why not?" "hey everyone why is my text so real?" "this is a statement i made once" "this is definitely a real tweet"
-                   "continues to be real" "everything here is the truth" "oh no what am i doing" "i keep just generating text" "testing everything is good" "a thing is what this is" "huh?"
-                   "real talk, this is a thing"]
-   "@another-twitter-user" ["am i a real twitter user?" "oh no this is fake" "i keep all of my receipts" "testing is for suckers." "thing is my favorite addams family character" "text time"
-                            "the truth is out there"]})
+(def app-consumer-key (env :app-consumer-key))
+(def app-consumer-secret (env :app-consumer-secret))
+(def user-access-token (env :user-access-token))
+(def user-access-token-secret (env :user-access-token-secret))
+
+(def creds (oauth/make-oauth-creds app-consumer-key
+                                   app-consumer-secret
+                                   user-access-token
+                                   user-access-token-secret))
+
+(defn get-user-tweets
+  [user-handle]
+  (let [user (s/replace-first user-handle #"@" "")]
+    (into []
+          (map :text
+               (twitter-api/statuses-user-timeline
+                :oauth-creds creds :params {:screen-name user
+                                            :exclude-replies true
+                                            :contributor-details false
+                                            :trim-user true
+                                            :include-rts false}
+                :callbacks (SyncSingleCallback. response-return-body
+                                                response-throw-error
+                                                exception-rethrow))))))
 
 (defn get-tweets
   [users]
   (->> users
-       (map #(get tweets %))
+       (map #(get-user-tweets %))
        flatten
-       (filter (complement utils/is-twitter-username))
        (map #(s/split % #"\s+"))
-       flatten))
+       flatten
+       (filter (complement utils/is-twitter-username))))
 
 (defn post-message
   [text]

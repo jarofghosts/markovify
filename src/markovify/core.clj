@@ -12,6 +12,8 @@
 
 (defn receive-message
   [from message]
-  (let [{:keys [users seed]} (utils/parse-message message)]
+  (let [{:keys [users seed]} (utils/parse-message message)
+        user-tweets (twitter/get-tweets users)
+        chain (utils/make-chain seed user-tweets)]
     (twitter/post-message
-     (build-tweet (utils/make-chain seed (twitter/get-tweets users)) from))))
+     (build-tweet chain from (- 140 (count from))))))

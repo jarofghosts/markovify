@@ -12,7 +12,9 @@
 
 (defn make-chain
   [seed coll]
-  (markov/generate-walk seed (markov/build-from-coll coll)))
+  (let [chain (markov/build-from-coll coll)]
+    (if (empty? seed) (markov/generate-walk chain)
+        (markov/generate-walk seed chain))))
 
 (defn parse-message
   [message]
