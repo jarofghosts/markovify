@@ -30,7 +30,7 @@
   [users]
   (flatten
    (map #(s/split % #"\s+")
-        (filter (complement is-username)
+        (filter (complement is-twitter-username)
                 (flatten
                  (map #(get tweets %) users))))))
 
