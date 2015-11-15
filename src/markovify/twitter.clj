@@ -1,7 +1,7 @@
 (ns markovify.twitter
   (require [clojure.string :as s]
-           [clojure.data.json :as json]
-           [clojure.core.async :refer [>! chan go]]
+           [clojure.core.async :refer [>!! chan]]
+           [cheshire.core :as json]
            [markovify.utils :as utils]
            [environ.core :refer [env]]
            [twitter.api.restful :as twitter-api]
@@ -9,7 +9,7 @@
            [twitter.oauth :as oauth])
   (use [twitter.callbacks]
        [twitter.callbacks.handlers])
-  (import (twitter.callbacks.protocols SyncSingleCallback AsyncStreamingCallback)))
+  (import (twitter.callbacks.protocols SyncSingleCallback SyncStreamingCallback)))
 
 (def screen-name (env :markovify-screen-name))
 (def app-consumer-key (env :app-consumer-key))
@@ -21,8 +21,6 @@
                                    app-consumer-secret
                                    user-access-token
                                    user-access-token-secret))
-
-(def seen-tweets (atom []))
 
 (defn remove-mentions
   [tweet]
@@ -38,6 +36,17 @@
          empty?
          not)))
 
+(defn post-reply
+  [id text]
+  (do
+    (println "posting " text " in response to tweet " id)
+    (twitter-api/statuses-update
+     :oauth-creds creds :params {:status text
+                                 :in-reply-to-status-id id}
+     :callbacks (SyncSingleCallback. response-return-body
+                                     response-throw-error
+                                     exception-rethrow))))
+
 (defn get-user-tweets
   [user-handle]
   (let [user (s/replace-first user-handle #"@" "")]
@@ -51,19 +60,34 @@
                                      response-throw-error
                                      exception-rethrow))))
 
+(defn keywordize
+  [k]
+  (keyword (s/replace k "_" "-")))
+
+(defn buffer-json
+  [ready]
+  (let [buffer (atom "")]
+    (fn [_ baos]
+      (let [json-text (str baos)]
+        (when (not (s/blank? json-text))
+          (if (.endsWith json-text "\r\n")
+            (let [text (s/trim-newline (str @buffer json-text))]
+              (println text)
+              (reset! buffer "")
+              (ready (json/parse-string text keywordize)))
+            (swap! buffer str (s/trim-newline json-text))))))))
+
 (defn mentions-to-channel
-  [chan]
-  (fn [_ baos]
-    (go
-      (let [json-text (str baos)
-            tweet (json/read-str json-text :key-fn keyword)]
-        (when (mentions? tweet screen-name)
-          (>! chan tweet))))))
+  [channel]
+  (buffer-json
+   (fn [tweet]
+     (when (mentions? tweet screen-name)
+       (>!! channel tweet)))))
 
 (defn mentions-channel
   []
   (let [c (chan)]
-    (twitter-stream/user-stream :oauth-creds creds :callbacks (AsyncStreamingCallback.
+    (twitter-stream/user-stream :oauth-creds creds :callbacks (SyncStreamingCallback.
                                                                (mentions-to-channel c)
                                                                response-throw-error
                                                                exception-rethrow))
@@ -77,7 +101,3 @@
        (map remove-mentions)
        (map #(s/split % #"\s+"))
        flatten))
-
-(defn post-message
-  [text]
-  (println text))

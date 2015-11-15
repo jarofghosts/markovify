@@ -1,5 +1,5 @@
 (ns markovify.core
-  (require [clojure.core.async :refer [<! go]]
+  (require [clojure.core.async :refer [<!!]]
            [markovify.utils :as utils]
            [markovify.twitter :as twitter]
            [environ.core :refer [env]]))
@@ -14,14 +14,17 @@
 
 (defn receive-message
   [tweet]
-  (let [{:keys [text] {:keys [user-mentions]} :entities {from :screen-name} :user} tweet
+  (let [{:keys [text id] {:keys [user-mentions]} :entities {from :screen-name} :user} tweet
         seed (twitter/remove-mentions tweet)
-        user-tweets (twitter/get-tweets (map :screen-name user-mentions))
+        user-tweets (twitter/get-tweets (filter #(not= twitter/screen-name %) (map :screen-name user-mentions)))
         chain (utils/make-chain seed user-tweets)]
-    (twitter/post-message
-     (build-tweet chain (str "@" from) (- 139 (count from))))))
+    (do (println (str "tweet from " from " saying " text))
+        (twitter/post-reply
+         id
+         (build-tweet chain (str "@" from) (- 139 (count from)))))))
 
-(defn main
-  []
+(defn -main
+  [& args]
   (let [c (twitter/mentions-channel)]
-    (go (while true (receive-message <! c)))))
+    (println (str "connecting as " twitter/screen-name))
+    (while true (receive-message (<!! c)))))
