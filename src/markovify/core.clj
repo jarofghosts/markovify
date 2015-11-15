@@ -1,6 +1,7 @@
 (ns markovify.core
   (require [markovify.utils :as utils]
-           [markovify.twitter :as twitter]))
+           [markovify.twitter :as twitter]
+           [environ.core :refer [env]]))
 
 (defn- build-tweet
   ([words] (build-tweet words ""))
