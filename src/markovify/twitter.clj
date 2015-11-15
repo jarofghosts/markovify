@@ -26,8 +26,7 @@
 
 (defn remove-mentions
   [tweet]
-  (let [{:keys [text entities]} tweet
-        {:keys [user-mentions]} entities]
+  (let [{:keys [text] {:keys [user-mentions]} :entities} tweet]
     (utils/remove-indices text (map :indices user-mentions))))
 
 (defn mentions?
@@ -61,8 +60,8 @@
         (when (mentions? tweet screen-name)
           (>! chan tweet))))))
 
-(defn streaming-test
-  [screenname]
+(defn mentions-channel
+  []
   (let [c (chan)]
     (twitter-stream/user-stream :oauth-creds creds :callbacks (AsyncStreamingCallback.
                                                                (mentions-to-channel c)
