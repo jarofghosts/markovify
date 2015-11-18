@@ -12,7 +12,7 @@
     (take-while
      #(< (count %) max-chars) (reductions utils/join-str initial words)))))
 
-(defn receive-message
+(defn- receive-message
   [tweet]
   (let [{:keys [text id] {:keys [user-mentions]} :entities {from :screen-name} :user} tweet
         seed (twitter/remove-mentions tweet)

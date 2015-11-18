@@ -2,16 +2,14 @@
   (:require [clojure.test :refer :all]
             [markovify.utils :refer :all]))
 
-(deftest twitter-username-test
-  (testing "is-twitter-username correctly determines if a string is a twitter
-            username"
-    (is (true? (is-twitter-username "@username")))
-    (is (true? (is-twitter-username "@anotherName")))
-    (is (false? (is-twitter-username "username")))
-    (is (false? (is-twitter-username "anotherName")))))
+(deftest invert-indices-test
+  (testing "converts vector of bad indices into vector of good indices"
+    (is [[0 0] [12 15] [27]] (invert-indices [[0 12] [15 27]]))
+    (is [[0]] (invert-indices [[]]))))
 
-(deftest parse-message-test
-  (testing "parse-message splits usernames and seeds"
-    (is (= (parse-message "@username seed") {:seed "seed" :users ["@username"]}))
-    (is (= (parse-message "@username @anotherName a longer seed")
-           {:seed "a longer seed" :users ["@username" "@anotherName"]}))))
+(deftest remove-indices-test
+  (testing "removes substrings at specified indices"
+    (is "good" (remove-indices "goodbad" [[4 6]]))
+    (is
+     "this is a sentence"
+     (remove-indices "this is a bad sentence with problems" [[10 12] [23 35]]))))

@@ -4,7 +4,10 @@
 
 (defn invert-indices
   [indices]
-  (partition-all 2 (into [0] (flatten indices))))
+  (->> indices
+       flatten
+       (into [0])
+       (partition-all 2)))
 
 (defn remove-indices
   [string bad-indices]
